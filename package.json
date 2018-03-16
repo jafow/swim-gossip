@@ -1,0 +1,29 @@
+{
+  "name": "swim-gossip",
+  "version": "0.1.0",
+  "description": "SWIM style gossip protocol implementation",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js | tap-spec"
+  },
+  "keywords": [
+    "p2p",
+    "gossip",
+    "swim",
+    "membership",
+    "protocol",
+    "distributed",
+    "systems"
+  ],
+  "author": "Jared Fowler <jared.a.fowler@gmail.com> (@jafow)",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint-config-standard": "^11.0.0",
+    "eslint-plugin-import": "^2.9.0",
+    "eslint-plugin-node": "^6.0.1",
+    "eslint-plugin-promise": "^3.7.0",
+    "eslint-plugin-standard": "^3.0.1",
+    "standard": "^11.0.1",
+    "tapenet": "^1.4.0"
+  }
+}
