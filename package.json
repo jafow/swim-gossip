@@ -25,5 +25,8 @@
     "eslint-plugin-standard": "^3.0.1",
     "standard": "^11.0.1",
     "tapenet": "^1.4.0"
+  },
+  "dependencies": {
+    "randombytes": "^2.0.6"
   }
 }
