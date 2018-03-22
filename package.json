@@ -27,6 +27,7 @@
     "tapenet": "^1.4.0"
   },
   "dependencies": {
+    "protocol-buffers": "^4.0.4",
     "randombytes": "^2.0.6"
   }
 }
