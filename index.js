@@ -1,7 +1,11 @@
+const fs = require('fs')
+const path = require('path')
 const protobuf = require('protocol-buffers')
 const dgram = require('dgram')
 const EventEmitter = require('events').EventEmitter
 const randombytes = require('randombytes')
+
+const messages = protobuf(fs.readFileSync(path.join(__dirname, 'schema.proto')))
 
 class MemberProcess extends EventEmitter {
   constructor (opts) {
@@ -11,9 +15,11 @@ class MemberProcess extends EventEmitter {
     var membershipTable = {}
     this.nodes = []
     this.heartbeat = 0
+    this.period = 3000
     this.idLength = opts.idLength || 20
     this.id = _opts.id || makeId()
     this.port = opts.port || 0
+    this.ip = opts.ip
     this.socket = dgram.createSocket(opts, handleMessage)
     this.socket.on('message', onmessage)
 
@@ -61,15 +67,33 @@ class MemberProcess extends EventEmitter {
     // query all nodes in list to get their updated memberlist
 
   }
-  sendPing (node) {
+  sendPing () {
+    var randIdx = Math.floor(Math.random() * (this.nodes.length - 1) + 1)
+    var randNode = this.nodes[randIdx]
 
+    var msg = {
+      nodeId: this.id,
+      ip: this.ip,
+      port: this.port,
+      heartbeat: this.heartbeat
+    }
+    var buf = messages.Msg.encode(msg)
+
+    this.socket.send(buf, 0, buf.length, randNode.port, randNode.address)
   }
-  lookup (msg) {
 
+  lookup (msg) {
+    // lookup node in membertable and update any failed nodes; forward if PINGREQ
   }
   listen () {
     this.socket.bind(this.port, this.address)
     this.socket.on('error', (err) => { console.error('Error binding socket: ', err) })
+  }
+  pingInterval () {
+    var _this = this
+    setTimeout(function ping () {
+      _this.sendPing()
+    }, this.period)
   }
 }
 
