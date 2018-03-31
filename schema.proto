@@ -4,8 +4,8 @@ message Msg {
     int32 port = 3;
     int32 heartBeat = 4;
     MsgType type = 5;
-    optional int32 destPort = 6;
-    optional int32 destAddr = 6;
+    string destAddr = 6;
+    int32 destPort = 7;
 }
 
 enum MsgType {
