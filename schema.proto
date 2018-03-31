@@ -1,15 +1,18 @@
 message Msg {
     string nodeId = 1;
-    string ip = 2;
-    int port = 3;
-    int heartbeat = 4;
-    MsgType type = 5 [default = PING];
+    string addr = 2;
+    int32 port = 3;
+    int32 heartBeat = 4;
+    MsgType type = 5;
+    optional int32 destPort = 6;
+    optional int32 destAddr = 6;
 }
 
 enum MsgType {
-    JOIN_REQ = 0;
-    JOIN_RES = 1;
-    PING = 2;
+    PING = 0;
+    JOIN_REQ = 1;
+    JOIN_RES = 2;
     PING_REQ = 3;
     ACK = 4;
+    FAIL = 5;
 }
