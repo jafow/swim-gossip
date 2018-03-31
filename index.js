@@ -13,9 +13,10 @@ class MemberProcess extends EventEmitter {
     var _this = this
     var _opts = opts || {type: 'udp6', lookup: _this.lookup}
     var membershipTable = {}
+
     this.nodes = []
     this.heartbeat = 0
-    this.period = 3000
+    this.pingPeriod = 3000
     this.idLength = opts.idLength || 20
     this.id = _opts.id || makeId()
     this.port = opts.port || 0
@@ -40,16 +41,11 @@ class MemberProcess extends EventEmitter {
         }
         addNode(newNode)
       }
-      updateList(msg, remoteInfo)
       var ack = composeMsg(msg, remoteInfo)
       this.socket.send(ack, 0, ack.length, remoteInfo.port, remoteInfo.address, onMessageSend)
     }
 
     function composeMsg (mgs, rinfo) {
-
-    }
-
-    function updateList (msg, rinfo) {
 
     }
 
@@ -85,15 +81,23 @@ class MemberProcess extends EventEmitter {
   lookup (msg) {
     // lookup node in membertable and update any failed nodes; forward if PINGREQ
   }
+
   listen () {
     this.socket.bind(this.port, this.address)
     this.socket.on('error', (err) => { console.error('Error binding socket: ', err) })
   }
+
   pingInterval () {
     var _this = this
     setTimeout(function ping () {
       _this.sendPing()
-    }, this.period)
+    }, this.pingPeriod)
+  }
+
+  startClock () {
+    var clockPeriod = 6000
+    this.clock = setInterval(function () {
+    }, clockPeriod)
   }
 }
 
