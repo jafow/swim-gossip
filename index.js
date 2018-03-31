@@ -12,97 +12,129 @@ class MemberProcess extends EventEmitter {
     super()
     var _this = this
     var _opts = opts || {type: 'udp6', lookup: _this.lookup}
-    var membershipTable = {}
 
-    this.nodes = []
-    this.heartbeat = 0
+    var inFlight = new Set()
+    var pingTimeout = null
+
+    this.nodeList = {}
+    this.heartBeat = 0
     this.pingPeriod = 3000
-    this.idLength = opts.idLength || 20
-    this.id = _opts.id || makeId()
+    this.idLength = 20
+    this.nodeId = _opts.id || makeId()
     this.port = opts.port || 0
-    this.ip = opts.ip
+    this.addr = opts.addr
     this.socket = dgram.createSocket(opts, handleMessage)
-    this.socket.on('message', onmessage)
+    this.on('message', onhandlemessage)
+    this.socket.on('error', (err) => {
+      console.error('Got anerr on sock: ', err)
+    })
+    listen()
 
-    async function makeId () {
-      return Buffer.from(randombytes(this.idLength)).toString('hex')
+    function makeId () {
+      return Buffer.from(randombytes(_this.idLength)).toString('hex')
     }
 
-    function onmessage (msg, remoteInfo) {
-      var nodeId = remoteInfo.address.toString() + remoteInfo.port.toString()
-      if (!membershipTable[nodeId]) {
-        // new node; add it to list, update list, and ack back
-        var newNode = {
-          id: nodeId,
-          msg: msg,
-          addr: remoteInfo.address,
-          port: remoteInfo.port,
-          msgSize: remoteInfo.size
-        }
-        addNode(newNode)
+    function onhandlemessage (_msg) {
+      var msg = messages.Msg.decode(_msg)
+      console.log('me: ', _this.nodeId, ' receiving ', msg.type, ' from dest: ', msg.destPort);
+      if (!inNodeList(_msg)) {
+        addToList(_msg)
+        this.msgSend(msg, 4)
       }
-      var ack = composeMsg(msg, remoteInfo)
-      this.socket.send(ack, 0, ack.length, remoteInfo.port, remoteInfo.address, onMessageSend)
+      if (msg.type === 0) {
+        // PING
+        this.msgSend(msg, 4)
+      }
+      if (msg.type === 3) {
+        // PING req --> forward
+        forward(msg)
+      }
+      if (msg.type === 4) {
+        // ACK; node is healthy
+        return clearACKTimeout()
+      }
     }
 
-    function composeMsg (mgs, rinfo) {
-
+    function inNodeList (node) {
+      var dec = messages.Msg.decode(node)
+      return Buffer.isBuffer(_this.nodeList[dec.nodeId])
     }
 
-    function addNode (node) {
-      membershipTable[node.id] = { msg: node.msg, addr: node.addr, port: node.port }
-      return membershipTable
+    function addToList (node) {
+      var dec = messages.Msg.decode(node)
+      _this.nodeList[dec.nodeId] = dec
+      return _this.nodeList
     }
 
-    function onMessageSend () {
-      console.log('message sent')
+    function forward (node) {
+      this.msgSend(node, 1)
+      inFlight.add(node.nodeId)
+      startTimeout(node.nodeId, node)
+    }
+
+    function clearACKTimeout () {
+      _this.socket.destroy()
+      return clearTimeout(pingTimeout)
+    }
+
+    function startTimeout (nodeId, node) {
+      var self = this
+      var t = setTimeout(function forwardTimeout () {
+        if (inFlight.has(nodeId)) {
+          return repFail(node)
+        }
+        return clearTimeout(t)
+      }, self.pingPeriod)
+    }
+
+    function repFail (node) {
+      var port = node.port
+      var addr = node.addr
+
+      var failMsg = {
+        nodeId: this.nodeId,
+        addr: this.addr,
+        port: this.port,
+        heartBeat: this.heartBeat,
+        type: 5,
+        destPort: node.destPort,
+        destAddr: node.destAddr
+      }
+      var buf = messages.Msg.encode(failMsg)
+      this.socket.send(buf, 0, buf.byteLength, port, addr)
+    }
+
+    function listen () {
+      _this.socket.bind(_this.port, _this.address)
+      _this.socket.on('error', (err) => { console.error('Error binding socket: ', err) })
+    }
+
+    function handleMessage (msg) {
+      _this.emit('message', msg)
     }
   }
-
-  queryAll (message) {
-    // query all nodes in list to get their updated memberlist
-
-  }
-  sendPing () {
-    var randIdx = Math.floor(Math.random() * (this.nodes.length - 1) + 1)
-    var randNode = this.nodes[randIdx]
-
+  msgSend (node, _msgType) {
+    var port = node.destPort || node.port
+    var addr = node.destAddr || node.addr
     var msg = {
-      nodeId: this.id,
-      ip: this.ip,
+      nodeId: this.nodeId,
+      addr: this.addr,
       port: this.port,
-      heartbeat: this.heartbeat
+      heartBeat: this.heartBeat++,
+      type: 0,
+      destPort: port,
+      destAddr: addr
     }
     var buf = messages.Msg.encode(msg)
 
-    this.socket.send(buf, 0, buf.length, randNode.port, randNode.address)
+    this.socket.send(buf, 0, buf.byteLength, port, addr)
   }
 
-  lookup (msg) {
-    // lookup node in membertable and update any failed nodes; forward if PINGREQ
+  addNode (node) {
+    var dec = messages.Msg.decode(node)
+    this.nodeList[dec.nodeId] = dec
+    return this.nodeList
   }
-
-  listen () {
-    this.socket.bind(this.port, this.address)
-    this.socket.on('error', (err) => { console.error('Error binding socket: ', err) })
-  }
-
-  pingInterval () {
-    var _this = this
-    setTimeout(function ping () {
-      _this.sendPing()
-    }, this.pingPeriod)
-  }
-
-  startClock () {
-    var clockPeriod = 6000
-    this.clock = setInterval(function () {
-    }, clockPeriod)
-  }
-}
-
-function handleMessage (msg) {
-  console.log('got mssg: ', msg.toString())
 }
 
 module.exports = MemberProcess
