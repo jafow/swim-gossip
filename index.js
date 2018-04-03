@@ -23,11 +23,10 @@ class MemberProcess extends EventEmitter {
     this.nodeId = _opts.id || makeId()
     this.port = opts.port || 0
     this.addr = opts.addr
-    this.socket = dgram.createSocket(opts, handleMessage)
-    this.on('message', onhandlemessage)
-    this.socket.on('error', (err) => {
-      console.error('Got anerr on sock: ', err)
-    })
+    this.socket = dgram.createSocket(opts)
+    this.socket.on('error', onhandleerror)
+    this.socket.on('message', onhandlemessage)
+
     listen()
 
     function makeId () {
@@ -36,14 +35,17 @@ class MemberProcess extends EventEmitter {
 
     function onhandlemessage (_msg) {
       var msg = messages.Msg.decode(_msg)
-      console.log('me: ', _this.nodeId, ' receiving ', msg.type, ' from dest: ', msg.destPort);
+      var self = this
+      console.log('me: ', self.port, ' \treceiving ', msg.type, ' from dest: ', msg.port)
       if (!inNodeList(_msg)) {
         addToList(_msg)
-        this.msgSend(msg, 4)
+        _this.msgSend(msg, 4)
+        console.log(`me: ${_this.port} \tsending ACK to new node at ${msg.port}`)
       }
       if (msg.type === 0) {
         // PING
-        this.msgSend(msg, 4)
+        console.log(`${_this.port} \tsending ACK to seen node ${msg.port} that pinged me`)
+        _this.msgSend(msg, 4)
       }
       if (msg.type === 3) {
         // PING req --> forward
@@ -51,8 +53,14 @@ class MemberProcess extends EventEmitter {
       }
       if (msg.type === 4) {
         // ACK; node is healthy
+        console.log(`${_this.port} received ACK from ${msg.port} from my PING, closing down`)
         return clearACKTimeout()
       }
+    }
+
+    function onhandleerror (err) {
+      console.error('Got anerr on sock: ', err)
+      _this.emit('error', err)
     }
 
     function inNodeList (node) {
@@ -73,7 +81,7 @@ class MemberProcess extends EventEmitter {
     }
 
     function clearACKTimeout () {
-      _this.socket.destroy()
+      process.exit(1)
       return clearTimeout(pingTimeout)
     }
 
@@ -108,26 +116,31 @@ class MemberProcess extends EventEmitter {
       _this.socket.bind(_this.port, _this.address)
       _this.socket.on('error', (err) => { console.error('Error binding socket: ', err) })
     }
-
-    function handleMessage (msg) {
-      _this.emit('message', msg)
-    }
   }
+
+  onmessagesend (err) {
+    if (err) return this.socket.emit('error', err)
+    console.log('message sent: ')
+  }
+
   msgSend (node, _msgType) {
-    var port = node.destPort || node.port
-    var addr = node.destAddr || node.addr
+    var self = this
+    var destPort = node.destPort
+    var destAddr = node.destAddr
     var msg = {
-      nodeId: this.nodeId,
-      addr: this.addr,
-      port: this.port,
-      heartBeat: this.heartBeat++,
-      type: 0,
-      destPort: port,
-      destAddr: addr
+      nodeId: self.nodeId,
+      addr: self.addr,
+      port: self.port,
+      heartBeat: self.heartBeat++,
+      type: _msgType,
+      destPort: destPort,
+      destAddr: destAddr
     }
     var buf = messages.Msg.encode(msg)
 
-    this.socket.send(buf, 0, buf.byteLength, port, addr)
+    this.socket.send(buf, 0, buf.byteLength, destPort, destAddr, function (m) {
+      self.onmessagesend(m)
+    })
   }
 
   addNode (node) {
