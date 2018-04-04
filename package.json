@@ -18,6 +18,7 @@
   "author": "Jared Fowler <jared.a.fowler@gmail.com> (@jafow)",
   "license": "MIT",
   "devDependencies": {
+    "debug": "^3.1.0",
     "eslint-config-standard": "^11.0.0",
     "eslint-plugin-import": "^2.9.0",
     "eslint-plugin-node": "^6.0.1",
