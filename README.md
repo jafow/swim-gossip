@@ -3,6 +3,19 @@ SWIM implementation of gossip protocol.
 
 read about it [here](http://www.cs.cornell.edu/info/projects/spinglass/public_pdfs/swim.pdf)
 
+## Getting Started
+clone the repo & `npm install` dependencies.
+
+## example
+
+run:
+
+```bash
+$ node example.js
+```
+
+to see wip example.
+
 ## Todo
 - [ ] failure detection
 
