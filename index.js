@@ -1,5 +1,6 @@
 const fs = require('fs')
 const path = require('path')
+const debug = require('debug')('MP')
 const protobuf = require('protocol-buffers')
 const dgram = require('dgram')
 const EventEmitter = require('events').EventEmitter
@@ -35,27 +36,32 @@ class MemberProcess extends EventEmitter {
 
     function onhandlemessage (_msg) {
       var msg = messages.Msg.decode(_msg)
-      var self = this
-      console.log('me: ', self.port, ' \treceiving ', msg.type, ' from dest: ', msg.port)
+      var newMsgType = null
+      var newMsg = Object.assign({}, msg, {destPort: msg.port, destAddr: msg.addr})
+
+      debug(`me: ${_this.port} \treceiving ${msg.type} from dest: ${msg.port}`)
+
       if (!inNodeList(_msg)) {
         addToList(_msg)
-        _this.msgSend(msg, 4)
-        console.log(`me: ${_this.port} \tsending ACK to new node at ${msg.port}`)
+        debug(`\tme: ${_this.port} \t adding new node at dest:${msg.port}`)
       }
       if (msg.type === 0) {
         // PING
-        console.log(`${_this.port} \tsending ACK to seen node ${msg.port} that pinged me`)
-        _this.msgSend(msg, 4)
+        debug(`me: ${_this.port} \tsending ACK to seen node ${msg.port} that pinged me`)
+        newMsgType = 4
       }
       if (msg.type === 3) {
-        // PING req --> forward
-        forward(msg)
+        // PING REQ --> forward
+        newMsgType = 3
+        return forward(newMsg, newMsgType)
       }
       if (msg.type === 4) {
         // ACK; node is healthy
-        console.log(`${_this.port} received ACK from ${msg.port} from my PING, closing down`)
+        debug(`me: ${_this.port} received ACK from ${msg.port} from my PING, closing down`)
         return clearACKTimeout()
       }
+
+      _this.msgSend(newMsg, newMsgType)
     }
 
     function onhandleerror (err) {
@@ -120,7 +126,6 @@ class MemberProcess extends EventEmitter {
 
   onmessagesend (err) {
     if (err) return this.socket.emit('error', err)
-    console.log('message sent: ')
   }
 
   msgSend (node, _msgType) {
@@ -139,6 +144,7 @@ class MemberProcess extends EventEmitter {
     var buf = messages.Msg.encode(msg)
 
     this.socket.send(buf, 0, buf.byteLength, destPort, destAddr, function (m) {
+      debug(`message sent: from ${self.port} to dest: ${destPort}`)
       self.onmessagesend(m)
     })
   }
