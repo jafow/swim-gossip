@@ -5,6 +5,7 @@ const protobuf = require('protocol-buffers')
 const dgram = require('dgram')
 const EventEmitter = require('events').EventEmitter
 const randombytes = require('randombytes')
+const bootstrapNode = {port: 10000, addr: '127.0.0.1'}
 
 const messages = protobuf(fs.readFileSync(path.join(__dirname, 'schema.proto')))
 
@@ -12,23 +13,24 @@ class MemberProcess extends EventEmitter {
   constructor (opts) {
     super()
     var _this = this
-    var _opts = opts || {type: 'udp6', lookup: _this.lookup}
+    var _opts = opts || {type: 'udp6'}
 
     var inFlight = new Set()
     var pingTimeout = null
 
     this.nodeList = {}
     this.heartBeat = 0
-    this.pingPeriod = 3000
-    this.idLength = 20
+    this.pingPeriod = 1500
+    this.protocolPeriod = 4000
+    this.idLength = 16
     this.nodeId = _opts.id || makeId()
-    this.port = opts.port || 0
-    this.addr = opts.addr
-    this.socket = dgram.createSocket(opts)
+    this.port = _opts.port || 0
+    this.addr = _opts.addr || '127.0.0.1'
+    this.socket = dgram.createSocket(_opts)
     this.socket.on('error', onhandleerror)
     this.socket.on('message', onhandlemessage)
 
-    listen()
+    this.init()
 
     function makeId () {
       return Buffer.from(randombytes(_this.idLength)).toString('hex')
@@ -47,8 +49,17 @@ class MemberProcess extends EventEmitter {
       }
       if (msg.type === 0) {
         // PING
-        debug(`me: ${_this.port} \tsending ACK to seen node ${msg.port} that pinged me`)
+        debug(`${_this.port} \tsending ACK to seen node ${msg.port} that pinged me`)
         newMsgType = 4
+        return _this.msgSend(newMsg, newMsgType)
+      }
+      if (msg.type === 1) {
+        // JOIN REQ -> send memberlist
+      }
+      if (msg.type === 2) {
+        // JOIN RES from bootstrap node -> update member list
+        // update memberlist
+        // start ping timeout
       }
       if (msg.type === 3) {
         // PING REQ --> forward
@@ -60,8 +71,6 @@ class MemberProcess extends EventEmitter {
         debug(`me: ${_this.port} received ACK from ${msg.port} from my PING, closing down`)
         return clearACKTimeout()
       }
-
-      _this.msgSend(newMsg, newMsgType)
     }
 
     function onhandleerror (err) {
@@ -117,11 +126,6 @@ class MemberProcess extends EventEmitter {
       var buf = messages.Msg.encode(failMsg)
       this.socket.send(buf, 0, buf.byteLength, port, addr)
     }
-
-    function listen () {
-      _this.socket.bind(_this.port, _this.address)
-      _this.socket.on('error', (err) => { console.error('Error binding socket: ', err) })
-    }
   }
 
   onmessagesend (err) {
@@ -153,6 +157,15 @@ class MemberProcess extends EventEmitter {
     var dec = messages.Msg.decode(node)
     this.nodeList[dec.nodeId] = dec
     return this.nodeList
+  }
+
+  listen () {
+    this.socket.bind(this.port, this.address)
+  }
+
+  init () {
+    this.listen()
+    this.msgSend(bootstrapNode, 1)
   }
 }
 
