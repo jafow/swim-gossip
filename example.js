@@ -1,4 +1,5 @@
 const MP = require('./index.js')
+const bootstrap = require('./bootstrap.js')
 
 var n1 = new MP({port: 3333, addr: '127.0.0.1', type: 'udp4'})
 var n2 = new MP({port: 3334, addr: '127.0.0.1', type: 'udp4'})
