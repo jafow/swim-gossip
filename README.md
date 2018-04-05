@@ -32,3 +32,11 @@ to see wip example.
 *   on determining a failure, send multicast FAIL to all nodes in `nodeList`
 
 - [ ] tapenet/mininet test
+
+- [ ] bootstrapping
+
+1. node sends a `JOIN_REQ` message to a known facilitator that keeps list of
+   N most recently joined nodes and uses the `JOIN_REP` response to create list
+   and announce
+    *   v0.0.1: bootstrap node has a known address
+    *   v0.0.2: use dns to resolve a name
