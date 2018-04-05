@@ -2,6 +2,10 @@
   "name": "swim-gossip",
   "version": "0.1.0",
   "description": "SWIM style gossip protocol implementation",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jafow/swim-gossip.git"
+  },
   "main": "index.js",
   "scripts": {
     "test": "node test.js | tap-spec"
