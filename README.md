@@ -3,10 +3,7 @@ SWIM implementation of gossip protocol.
 
 read about it [here](http://www.cs.cornell.edu/info/projects/spinglass/public_pdfs/swim.pdf)
 
-## Getting Started
-clone the repo & `npm install` dependencies.
-
-## Quickstart
+## example
 
 ```javascript
 const MP = require('swim-gossip')
@@ -16,7 +13,7 @@ const messages = protobuf(fs.readFileSync(path.join(__dirname, 'schema.proto')))
 
 // create a bootstrap node
 const BOOTSTRAP_PORT = 10000
-const BOOTSTRAP_HOST = '127.0.0.1'
+const BOOTSTRAP_HOST = '1.0.0.1'
 var bootstrapNode = dgram.createSocket({
   port: BOOTSTRAP_PORT,
   host: BOOTSTRAP_HOST,
@@ -65,16 +62,7 @@ setTimeout(function () {
   console.log(`n3.membershipList: ${n3.membershipList}`)
   // n2, n1 is gone
 }, 1500)
-
 ```
-run:
-
-```bash
-$ DEBUG=MP node example.js
-```
-
-to see wip example with debug output.
-
 ## Todo
 - [ ] failure detection
 
@@ -94,8 +82,44 @@ to see wip example with debug output.
 
 - [ ] bootstrapping
 
-1. node sends a `JOIN_REQ` message to a known facilitator that keeps list of
-   N most recently joined nodes and uses the `JOIN_REP` response to create list
-   and announce
+1. node M₁ sends a `JOIN_REQ` message to a known facilitator B that keeps list of
+   the last N nodes that recently joined.
+
+2. M₁ receives the `JOIN_REP` response with list of nodes to announce to:
     *   v0.0.1: bootstrap node has a known address
-    *   v0.0.2: use dns to resolve a name
+    *   v0.0.2: use dns to resolve a name :star:
+
+```javascript
+// list of most recently seen nodes
+{
+  msgType: 5,
+  nodes: [
+  {nodeId: 'deadbeef', heartbeat: 44, port: 10000, address: '1.1.1.1'},
+  {nodeId: '12be98', heartbeat: 16, port: 10000, address: '1.1.1.1'},
+  {nodeId: '12345af', heartbeat: 20, port: 10000, address: '1.1.1.1'},
+  {nodeId: '9129bea', heartbeat: 22, port: 10000, address: '1.1.1.1'}
+  ]
+}
+```
+
+
+## API
+
+### var mp = new MP(opts)
+where opts are 
+```javascript
+{
+    port: <Number>, // defaults to 0
+    addr: <String>, // defaults to '1.1.1.1'
+    type: <String>, // one of 'udp4' or 'udp6', defaults to 'udp4'
+    protocolPeriod: <Number> // milliseconds, defaults to 4000
+    pingPeriod: <Number> // milliseconds, defaults to 1000
+}
+```
+
+### mp.join(port, address)
+Sends a JOIN_REQ message type to bootstrap node
+
+### mp.destroy(cb)
+Tear down a running node. Sends a multicast LEAVE message type to all members in
+list, closes the socket, and clears the membership list.

@@ -5,7 +5,7 @@ const protobuf = require('protocol-buffers')
 const dgram = require('dgram')
 const EventEmitter = require('events').EventEmitter
 const randombytes = require('randombytes')
-const bootstrapNode = {port: 10000, addr: '127.0.0.1'}
+const bootstrapNode = {port: 10000, addr: '1.0.0.1'}
 
 const messages = protobuf(fs.readFileSync(path.join(__dirname, 'schema.proto')))
 
@@ -17,23 +17,24 @@ class MemberProcess extends EventEmitter {
 
     var inFlight = new Set()
     var pingTimeout = null
+    var idLength = 16
 
     this.nodeList = {}
     this.heartBeat = 0
     this.pingPeriod = 1500
     this.protocolPeriod = 4000
-    this.idLength = 16
     this.nodeId = _opts.id || makeId()
     this.port = _opts.port || 0
-    this.addr = _opts.addr || '127.0.0.1'
-    this.socket = dgram.createSocket(_opts)
+    this.addr = _opts.addr || '1.1.1.1'
+
+    this.socket = dgram.createSocket({type: _opts.type})
     this.socket.on('error', onhandleerror)
     this.socket.on('message', onhandlemessage)
 
     this.init()
 
     function makeId () {
-      return Buffer.from(randombytes(_this.idLength)).toString('hex')
+      return Buffer.from(randombytes(idLength)).toString('hex')
     }
 
     function onhandlemessage (_msg) {
